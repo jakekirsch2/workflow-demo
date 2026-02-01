@@ -14,11 +14,6 @@ gcp:
   default_cpu: "1"
   default_timeout: "30m"
 
-# BigQuery settings
-bigquery:
-  dataset: ${BQ_DATASET:-sales_data}
-  location: US
-
 # Docker build settings
 docker:
   base_image: python:3.11-slim

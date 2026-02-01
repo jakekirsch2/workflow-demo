@@ -1,24 +1,18 @@
-# Daily ETL Pipeline Configuration
-# This pipeline runs daily at 2 AM UTC to process sales data
-
 name: daily_etl
-description: "Daily sales data extraction, cleaning, and summarization"
+description: "Daily sales data extraction and transformation"
 version: "1.0.0"
-schedule: "0 2 * * *"  # cron: 2 AM UTC daily
+schedule: "0 2 * * *"
 timezone: "UTC"
 
-# Pipeline-level configuration
 config:
   max_retries: 3
   retry_delay: "60s"
   timeout: "2h"
 
-# Environment variables available to all tasks
 env:
   DATASET: sales_data
   PROJECT_ID: ${GCP_PROJECT_ID}
 
-# Task definitions - executed in order
 tasks:
   - name: extract
     description: "Extract raw sales data from source systems"
@@ -35,19 +29,8 @@ tasks:
       max_attempts: 3
       backoff: "exponential"
 
-  - name: sql_clean
-    description: "Clean and validate extracted data"
-    type: sql
-    file: sql/sales_clean.sql
-    destination:
-      dataset: sales_data
-      table: cleaned_transactions
-      write_disposition: WRITE_TRUNCATE
-    depends_on:
-      - extract
-
   - name: transform
-    description: "Apply business transformations"
+    description: "Clean, validate, and apply business transformations"
     type: python
     function: functions/transform_sales.py
     entrypoint: main
@@ -55,26 +38,11 @@ tasks:
     cpu: "2"
     timeout: "45m"
     env:
-      INPUT_TABLE: cleaned_transactions
+      INPUT_TABLE: staging_raw_transactions
       OUTPUT_TABLE: transformed_sales
     depends_on:
-      - sql_clean
+      - extract
 
-  - name: summary
-    description: "Generate daily summary aggregations"
-    type: sql
-    file: sql/daily_summary.sql
-    destination:
-      dataset: sales_data
-      table: daily_summary
-      write_disposition: WRITE_APPEND
-      partitioning:
-        field: summary_date
-        type: DAY
-    depends_on:
-      - transform
-
-# Alerting configuration
 alerting:
   on_success:
     - slack:
@@ -90,7 +58,6 @@ alerting:
           - data-team@example.com
         subject: "Pipeline Failure: daily_etl"
 
-# Resource labels for cost tracking
 labels:
   team: data-engineering
   environment: production
