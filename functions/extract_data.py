@@ -2,6 +2,9 @@
 """
 Extract Data Function (Demo Stub)
 Demonstrates the extraction step of the ETL pipeline.
+
+Functions receive arguments from the pipeline YAML definition.
+Environment variables are still available for secrets and global config.
 """
 
 import os
@@ -16,21 +19,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main():
-    """Main entry point for the extraction function."""
+def main(source_table: str = "raw_transactions", dataset: str = "sales_data"):
+    """
+    Main entry point for the extraction function.
+
+    Args:
+        source_table: The source table to extract from
+        dataset: The dataset name to use
+    """
     logger.info("Starting data extraction (demo mode)")
 
-    # Get configuration from environment
-    project_id = os.environ.get('PROJECT_ID', os.environ.get('GCP_PROJECT_ID', 'demo-project'))
-    dataset = os.environ.get('DATASET', 'sales_data')
-    source_table = os.environ.get('SOURCE_TABLE', 'raw_transactions')
-    batch_size = int(os.environ.get('BATCH_SIZE', '10000'))
+    # Get system config from environment (set by the platform)
+    project_id = os.environ.get('PROJECT_ID', 'demo-project')
     execution_id = os.environ.get('EXECUTION_ID', 'local-run')
     pipeline_name = os.environ.get('PIPELINE_NAME', 'daily_etl')
     task_name = os.environ.get('TASK_NAME', 'extract')
 
+    # Config from environment (via Secret Manager UI)
+    batch_size = int(os.environ.get('BATCH_SIZE', '10000'))
+
     logger.info(f"Configuration:")
-    logger.info(f"  Project ID: {project_id}")
+    logger.info(f"  Project ID: {project_id} test dev")
     logger.info(f"  Dataset: {dataset}")
     logger.info(f"  Source Table: {source_table}")
     logger.info(f"  Batch Size: {batch_size}")

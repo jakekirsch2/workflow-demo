@@ -7,17 +7,20 @@ tasks:
     description: "Extract raw sales data from source systems"
     type: python
     function: functions/extract_data.py
+    entrypoint: main
+    args:
+      - "raw_transactions"  # source_table
+      - "sales_data"        # dataset
     memory: "2Gi"
     cpu: "1"
     timeout: "30m"
-    env:
-      SOURCE_TABLE: raw_transactions
-      BATCH_SIZE: "10000"
 
   - name: transform
     description: "Clean, validate, and apply business transformations"
     type: python
     function: functions/transform_sales.py
+    entrypoint: main
+    args: []
     memory: "4Gi"
     cpu: "2"
     timeout: "45m"
