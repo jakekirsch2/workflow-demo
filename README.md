@@ -1,20 +1,32 @@
 # Workflow Example Repository
 
-This is a template repository demonstrating how to define data pipelines for the Serverless Workflow Orchestration Platform.
+This is a template repository for the Serverless Workflow Orchestration Platform. Define your data pipelines in YAML, write Python functions, and let the platform handle deployment and execution.
 
 ## Quick Start
 
-1. **Fork this repository** to your GitHub account
+### 1. Clone this repository
 
-2. **Connect to the platform**:
-   - Go to https://workflow-orchestrator.example.com
-   - Sign in with GitHub
-   - Select this repository
-   - The platform will automatically deploy your pipelines
+```bash
+git clone https://github.com/jakekirsch2/workflow-example.git
+cd workflow-example
+```
 
-3. **Edit your pipeline** in `pipelines/daily_etl.yaml`
+### 2. Connect to the platform
 
-4. **Push changes** - the platform automatically redeploys
+- Go to https://workflow-orchestrator-frontend-gstxypf3sq-uc.a.run.app/
+- Sign in with GitHub
+- Connect your cloned repository
+- The platform will automatically deploy your pipelines
+
+### 3. Make changes and push
+
+Edit your pipeline or functions, then push to trigger a redeploy:
+
+```bash
+git add .
+git commit -m "Update pipeline"
+git push
+```
 
 ## Repository Structure
 
@@ -26,122 +38,136 @@ workflow-example/
 │   ├── extract_data.py     # Data extraction
 │   ├── transform_sales.py  # Data transformation
 │   └── requirements.txt    # Python dependencies
-├── sql/                    # BigQuery SQL files
-│   ├── sales_clean.sql     # Data cleaning
-│   └── daily_summary.sql   # Aggregations
-├── config.yaml             # Platform configuration
-└── .env.example            # Secrets template
+└── README.md
 ```
 
-## Pipeline Definition Format
+## Pipeline Definition
+
+Pipelines are defined in YAML files in the `pipelines/` directory:
 
 ```yaml
-name: my_pipeline
-schedule: "0 2 * * *"  # Cron expression (2 AM daily)
+name: daily-etl
+description: Daily ETL pipeline example
+schedule: "0 6 * * *"  # 6 AM daily (cron format)
 
 tasks:
   - name: extract
     type: python
     function: functions/extract_data.py
+    entrypoint: main
+    args:
+      - "raw_transactions"
+      - "sales_data"
     memory: "2Gi"
     cpu: "1"
 
   - name: transform
-    type: sql
-    file: sql/my_query.sql
+    type: python
+    function: functions/transform_sales.py
+    entrypoint: main
     depends_on:
       - extract
-
-alerting:
-  on_failure:
-    - slack:
-        channel: "#alerts"
+    memory: "4Gi"
+    cpu: "2"
 ```
 
-## Task Types
+### Pipeline Fields
 
-### Python Tasks
+| Field | Description |
+|-------|-------------|
+| `name` | Pipeline identifier (lowercase, hyphens) |
+| `description` | Human-readable description |
+| `schedule` | Cron expression for scheduled runs (optional) |
+| `tasks` | List of tasks to execute |
 
-Execute Python functions as containerized jobs:
+### Task Fields
 
-```yaml
-- name: my_python_task
-  type: python
-  function: functions/my_function.py
-  entrypoint: main  # Optional, defaults to 'main'
-  memory: "4Gi"     # 256Mi to 32Gi
-  cpu: "2"          # 0.5 to 8
-  timeout: "1h"     # Max 24h
-  env:
-    MY_VAR: "value"
+| Field | Description |
+|-------|-------------|
+| `name` | Task identifier |
+| `type` | Task type (`python`) |
+| `function` | Path to Python file |
+| `entrypoint` | Function to call (default: `main`) |
+| `args` | Arguments passed to the function (as positional args) |
+| `depends_on` | List of tasks that must complete first |
+| `memory` | Memory allocation (`512Mi`, `2Gi`, etc.) |
+| `cpu` | CPU allocation (`1`, `2`, etc.) |
+
+## Writing Python Functions
+
+Your function's entrypoint receives the `args` from the pipeline definition as positional arguments:
+
+```python
+# functions/extract_data.py
+
+def main(source_table: str, dataset: str):
+    """
+    Called with args from pipeline:
+      args:
+        - "raw_transactions"   -> source_table
+        - "sales_data"         -> dataset
+    """
+    print(f"Extracting from {source_table} to {dataset}")
+
+    # Your extraction logic here
+
+    return {
+        "status": "success",
+        "records_extracted": 1250
+    }
 ```
 
-### SQL Tasks
-
-Execute BigQuery SQL queries:
-
-```yaml
-- name: my_sql_task
-  type: sql
-  file: sql/my_query.sql
-  destination:
-    dataset: my_dataset
-    table: my_table
-    write_disposition: WRITE_TRUNCATE  # or WRITE_APPEND
-```
+The platform calls your function like: `main("raw_transactions", "sales_data")`
 
 ## Environment Variables
 
-Environment variables can be set at multiple levels:
+You can configure environment variables for your pipelines in the platform UI:
 
-1. **Pipeline level** - Available to all tasks
-2. **Task level** - Override for specific tasks
-3. **Secrets** - Stored in `.env` and synced to GCP Secret Manager
+1. Go to **Settings** > **Environment Variables**
+2. Select your repository
+3. Choose the environment (Production or Development)
+4. Add your variables (e.g., `API_KEY`, `DATABASE_URL`)
 
-### Available Variables
+These variables are securely stored and injected into your functions at runtime. Access them in your code:
+
+```python
+import os
+
+def main():
+    api_key = os.environ.get("API_KEY")
+    database_url = os.environ.get("DATABASE_URL")
+```
+
+### System Variables
+
+The platform automatically provides these variables:
 
 | Variable | Description |
 |----------|-------------|
-| `GCP_PROJECT_ID` | Your GCP project ID |
-| `DATASET` | Default BigQuery dataset |
 | `PIPELINE_NAME` | Current pipeline name |
 | `TASK_NAME` | Current task name |
-| `RUN_ID` | Unique execution ID |
-
-## Alerting
-
-Configure alerts for pipeline events:
-
-```yaml
-alerting:
-  on_success:
-    - slack:
-        channel: "#data-pipeline"
-        message: "Pipeline completed!"
-
-  on_failure:
-    - slack:
-        channel: "#alerts"
-        mention: "@oncall"
-    - email:
-        to:
-          - team@example.com
-```
+| `EXECUTION_ID` | Unique execution ID |
+| `ENVIRONMENT` | `production` or `development` |
 
 ## Local Development
 
 ### Prerequisites
 
 - Python 3.11+
-- Google Cloud SDK
-- Docker (optional)
+- pyenv (recommended for managing Python versions)
 
-### Setup
+### Setup with pyenv
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/workflow-example.git
+# Install pyenv (macOS)
+brew install pyenv
+
+# Install Python 3.11
+pyenv install 3.11
+
+# Set local Python version
 cd workflow-example
+pyenv local 3.11
 
 # Create virtual environment
 python -m venv venv
@@ -149,64 +175,44 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r functions/requirements.txt
-
-# Set up environment
-cp .env.example .env
-# Edit .env with your values
 ```
 
 ### Testing Functions Locally
 
+Test your functions before deploying:
+
 ```bash
-# Run extraction
+# Activate virtual environment
+source venv/bin/activate
+
+# Test with arguments matching your pipeline definition
+python -c "from functions.extract_data import main; main('raw_transactions', 'sales_data')"
+
+# Or run the file directly if it has a __main__ block
 python functions/extract_data.py
-
-# Run transformation
-python functions/transform_sales.py
 ```
 
-### Testing SQL Locally
+### Adding Dependencies
 
-```bash
-# Use bq CLI
-bq query --use_legacy_sql=false < sql/sales_clean.sql
+Add any Python packages your functions need to `functions/requirements.txt`:
+
+```
+requests>=2.28.0
+pandas>=2.0.0
 ```
 
-## Cost Estimation
+The platform will install these when building your container.
 
-| Component | Typical Usage | Monthly Cost |
-|-----------|--------------|--------------|
-| Cloud Run Jobs | 2 vCPU, 4GB, 30min/day | ~$15 |
-| BigQuery | 10GB processed/day | ~$15 |
-| Cloud Workflows | 100 executions/day | ~$3 |
-| **Total** | | **~$33/month** |
+## Platform Features
 
-## Troubleshooting
-
-### Pipeline not deploying
-
-1. Check the platform dashboard for errors
-2. Verify YAML syntax: `yamllint pipelines/`
-3. Check GitHub webhook delivery
-
-### Function failing
-
-1. Check Cloud Logging in the dashboard
-2. Verify environment variables are set
-3. Test function locally first
-
-### SQL errors
-
-1. Check query syntax in BigQuery console
-2. Verify table and dataset exist
-3. Check IAM permissions
+- **Auto-deploy**: Push to GitHub and pipelines are automatically redeployed
+- **Scheduling**: Run pipelines on a cron schedule
+- **Manual triggers**: Run pipelines on-demand from the dashboard
+- **Real-time logs**: View execution logs as they happen
+- **Cost tracking**: Monitor usage and costs per execution
+- **Environment variables**: Securely store secrets in the UI
 
 ## Support
 
-- Documentation: https://docs.workflow-orchestrator.example.com
-- Issues: https://github.com/your-org/workflow-orchestrator/issues
-- Slack: #workflow-platform
-
-## License
-
-MIT License - see LICENSE file
+- Platform: https://workflow-orchestrator-frontend-gstxypf3sq-uc.a.run.app/
+- Issues: https://github.com/jakekirsch2/workflow-example/issues
