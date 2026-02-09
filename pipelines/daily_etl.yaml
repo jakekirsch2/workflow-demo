@@ -1,6 +1,6 @@
-name: daily-etl
+name: daily-etl-demo
 description: "Daily sales data extraction and transformation"
-schedule: "0 2 * * *"
+schedule: "15 2 * * *"
 
 tasks:
   - name: extract
